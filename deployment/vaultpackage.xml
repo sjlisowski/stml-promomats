@@ -1,0 +1,12 @@
+<vaultpackage xmlns="https://veevavault.com/">
+  <name>JSDK</name>
+  <source>
+    <vault></vault>
+    <author>Coeus Solutions</author>
+  </source>
+  <summary>Custom JSDK Modules for Stemline PromoMats</summary>
+  <description></description>
+  <javasdk>
+    <deployment_option>incremental</deployment_option>
+  </javasdk>
+</vaultpackage>
