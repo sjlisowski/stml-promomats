@@ -151,7 +151,7 @@ public class SubmissionManifestMonitor implements Job {
 
       Result result = SubmissionManifest.CheckAndClose(recordId);
 
-]      if (result.success == false) {
+      if (result.success == false) {
         logger.log("Submission Manifest " + recordId + " not closed due to: " + result.message);
       } else {
         logger.log("Submission Manifest " + recordId + " closed");

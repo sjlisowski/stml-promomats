@@ -141,7 +141,7 @@ public class SubmissionManifest {
 
     /**
      * Check if the Manifest can be closed (actually deleted).
-     * Return true if the Manifest was closed.
+     * Return true if the Manifest was closed (deleted).
      * Return false if the Submission Manifest is not ready to be closed.  This is NOT an error state.
      *
      * This logic depends on the following configuration elements in Vault:
@@ -151,7 +151,7 @@ public class SubmissionManifest {
      *   - Compliance Package document lifecycle: LCS "Submission Complete": Entry Action exists to
      *     blank out the "Submission Manifest" object reference field (submission_manifest__c)
      *
-     * @param manifestId
+     * @param manifestId -- Submission Manifest record ID
      * @return
      */
     public static Result CheckAndClose(String manifestId) {
@@ -190,7 +190,6 @@ public class SubmissionManifest {
             return result;
         }
 
-        // delete the record
         RecordService recordService = ServiceLocator.locate(RecordService.class);
         Record record = recordService.newRecordWithId("submission_manifest__c", manifestId);
         RecordBatchDeleteRequest deleteRequest = recordService
