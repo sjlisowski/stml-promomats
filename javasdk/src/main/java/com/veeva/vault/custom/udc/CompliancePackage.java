@@ -110,18 +110,23 @@ public class CompliancePackage {
         commentsSB.append(materialId).append(":\n");
 
         if (distributionDetails != null & distributionDetails.length() > 0) {
-          commentsSB.append(distributionDetails).append("\n");
+          commentsSB.append(distributionDetails);
         }
 
         if (replacementMaterial.booleanValue() == true) {
           commentsSB
+            .append("\n")
             .append("Replaces: ")
-            .append(prevMaterialId)
-            .append(" \"").append(prevMaterialName).append("\" ")
-            .append("submitted on ").append(prevSubmissionDate.toString()).append("\n");
+            .append(prevMaterialId);  // assuming this will never be null
+          if (prevMaterialName != null) {
+            commentsSB.append(" \"").append(prevMaterialName).append("\"");
+          }
+          if (prevSubmissionDate != null) {
+            commentsSB.append(" submitted on ").append(prevSubmissionDate.toString());
+          }
         }
 
-        commentsSB.append("\n");
+        commentsSB.append("\n\n");
         
       }  // end while()
 
