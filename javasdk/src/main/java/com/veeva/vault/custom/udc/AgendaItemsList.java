@@ -21,12 +21,34 @@ import java.util.List;
  *    - compressAgendaItemOrdering
  *    - updateStartEndTimes
  *    - saveChanged Records
+ *
+ *  Time manipulation logic in this class depend on a time string that's in a valid
+ *  format, either in 12-hour or 24-hour format.  The Agenda (agenda__c) object in Vault
+ *  has a validation rule that enforces this requirement.  The full text of the validation
+ *  rule is:
+ *
+ *    IsBlank(meeting_time__c)
+ *     ||
+ *    Regex(meeting_time__c, "^0*[1-9]:[0-5][0-9] (AM|PM).*$")
+ *     ||
+ *    Regex(meeting_time__c, "^1[0-2]:[0-5][0-9] (AM|PM).*$")
+ *     ||
+ *    Regex(meeting_time__c, "^0[0-9]:[0-5][0-9].*$")
+ *     ||
+ *    Regex(meeting_time__c, "^1[0-9]:[0-5][0-9].*$")
+ *     ||
+ *    Regex(meeting_time__c, "^2[0-3]:[0-5][0-9].*$")
+ *
  */
 
 @UserDefinedClassInfo
 public class AgendaItemsList {
 
+    private static final int TIME_FORMAT_12 = 1;
+    private static final int TIME_FORMAT_24 = 2;
+
     private List<AgendaItem> agendaItems;
+    private int timeFormat = 0;
 
     public AgendaItemsList(String agendaId) {
 
@@ -245,8 +267,10 @@ public class AgendaItemsList {
 
       // get hh, and add 12 if in the afternoon
       double hh = (double) Integer.parseInt(hhmm[0]);
-      if (hh < 12.0 && timeParts[1].equals("PM")) {
-        hh += 12.0;
+      if (this.timeFormat == TIME_FORMAT_12) {
+        if (hh < 12.0 && timeParts[1].equals("PM")) {
+          hh += 12.0;
+        }
       }
 
       return hh + mm;
@@ -259,12 +283,26 @@ public class AgendaItemsList {
       BigDecimal decTime = new BigDecimal(String.valueOf(time));
 
       int hour = decTime.intValue();
-//      int min = decTime.subtract(new BigDecimal(hour)).multiply(new BigDecimal(60)).intValue();
+
       int min = (int) Math.round(decTime.subtract(new BigDecimal(hour)).multiply(new BigDecimal(60)).doubleValue());
 
-      if (hour >= 13) hour -= 12;
+      if (this.timeFormat == TIME_FORMAT_12) {
+        if (hour >= 13) {
+          hour -= 12;
+        }
+      }
 
       return String.valueOf(hour) + ":" + (min < 10 ? "0" : "") + String.valueOf(min);
+    }
+
+    private int getTimeFormat(String agendaMeetingTime) {
+      if (agendaMeetingTime == null)
+        return 0;
+      if (agendaMeetingTime.contains("AM") || agendaMeetingTime.contains("PM")) {
+        return TIME_FORMAT_12;
+      } else {
+        return TIME_FORMAT_24;
+      }
     }
 
 }
