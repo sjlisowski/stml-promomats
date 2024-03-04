@@ -13,22 +13,23 @@ import com.veeva.vault.sdk.api.core.UserDefinedClassInfo;
 
 @UserDefinedClassInfo
 public class DocVersionIdParts {
-    public String id;
+
+    public int id;
     public int major;
     public int minor;
 
     /**
-     *
+     * Construct a DocVersionIdParts, parsing the components of a vault document version id.
      * @param docVersionId in the form "id_major_minor", e.g. "26_0_1".
      */
     public DocVersionIdParts(String docVersionId) {
         String a[] = StringUtils.split(docVersionId, "_");
-        this.id = a[0];
+        this.id = Integer.parseInt(a[0]);
         this.major = Integer.parseInt(a[1]);
         this.minor = Integer.parseInt(a[2]);
     }
 
-    public static String id(String docVersionId) { return (new DocVersionIdParts(docVersionId).id); }
+    public static int id(String docVersionId) { return (new DocVersionIdParts(docVersionId).id); }
 
     public static int major(String docVersionId) {
         return (new DocVersionIdParts(docVersionId).major);

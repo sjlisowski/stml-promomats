@@ -1,12 +1,12 @@
 package com.veeva.vault.custom.triggers;
 
+import com.veeva.vault.custom.udc.DocVersionIdParts;
 import com.veeva.vault.custom.udc.ErrorType;
 import com.veeva.vault.custom.udc.QueryUtil;
 import com.veeva.vault.custom.udc.Util;
 import com.veeva.vault.sdk.api.core.RollbackException;
 import com.veeva.vault.sdk.api.core.ServiceLocator;
 import com.veeva.vault.sdk.api.core.ValueType;
-import com.veeva.vault.sdk.api.core.VaultCollections;
 import com.veeva.vault.sdk.api.data.*;
 
 /**
@@ -46,32 +46,43 @@ public class SubmissionManifestMaterial implements RecordTrigger {
           checkManifestNotSubmitted(record);
         }
 
-        // Because the "document__c" field is an unbound document reference field, changes
-        // to the field are not available until AFTER Insert or Update
+        // Because the "document__c" field is an unbound document reference field, access
+        // to the field is not available until AFTER Insert or Update
 
         if (recordEvent == RecordEvent.AFTER_INSERT) {
-          Record record = inputRecord.getNew();
-          String recordId = getRecordId(record);
-          String materialId = getMaterialId(getDocumentVersionId(record));
-          checkDocumentIncludedOnAnotherManifest(recordId, materialId);
-          setMaterialId(recordId, materialId);
+          processRecordInsertUpdate(inputRecord.getNew());
         }
 
         if (recordEvent == RecordEvent.AFTER_UPDATE) {
           String newDocumentVersionId = getDocumentVersionId(inputRecord.getNew());
           String oldDocumentVersionId = getDocumentVersionId(inputRecord.getOld());
           if (!newDocumentVersionId.equals(oldDocumentVersionId)) {
-            Record record = inputRecord.getNew();
-            checkManifestNotSubmitted(record);
-            String recordId = getRecordId(record);
-            String materialId = getMaterialId(getDocumentVersionId(record));
-            checkDocumentIncludedOnAnotherManifest(recordId, materialId);
-            setMaterialId(recordId, materialId);
+            processRecordInsertUpdate(inputRecord.getNew());
           }
          }
 
       }  // end for
     	
+    }
+
+    // Process the inserted or updated record (AFTER insert or Update)
+    private void processRecordInsertUpdate(Record record) {
+
+      String recordId = getRecordId(record);
+      String materialId = getMaterialId(getDocumentVersionId(record));
+
+      checkDocumentIncludedOnAnotherManifest(recordId, materialId); //throws exception
+
+      RecordService recordService = ServiceLocator.locate(RecordService.class);
+      Record updateRecord = recordService.newRecordWithId(record.getObjectName(), recordId);
+      String docVersionId = record.getValue("document__c", ValueType.STRING);
+      int docId = DocVersionIdParts.id(docVersionId);
+
+      updateRecord.setValue("material_id__c", materialId);
+      updateRecord.setValue("project_owner__c", Util.getUserInDocumentRole(docId, "project_manager__c"));
+
+      Util.saveRecord(updateRecord);
+
     }
 
     // Is the document, identified by the material id, attached to a different manifest?
@@ -101,14 +112,6 @@ public class SubmissionManifestMaterial implements RecordTrigger {
           "This change is not allowed at this time.  Your Submission Manifest must be in \"Draft\" status in order to make this change."
         );
       }
-    }
-
-    // Set the Material ID field on the current object record...
-    private void setMaterialId(String recordId, String materialId) {
-      RecordService recordService = ServiceLocator.locate(RecordService.class);
-      Record updateRecord = recordService.newRecordWithId("submission_manifest_material__c", recordId);
-      updateRecord.setValue("material_id__c", materialId);
-      Util.batchSaveRecords(VaultCollections.asList(updateRecord));
     }
 
     private String getMaterialId(String documentVersionId) {

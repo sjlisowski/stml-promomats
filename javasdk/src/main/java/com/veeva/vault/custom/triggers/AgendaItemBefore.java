@@ -1,6 +1,7 @@
 package com.veeva.vault.custom.triggers;
 
 import com.veeva.vault.custom.udc.QueryUtil;
+import com.veeva.vault.custom.udc.Util;
 import com.veeva.vault.sdk.api.core.TriggerOrder;
 import com.veeva.vault.sdk.api.core.ValueType;
 import com.veeva.vault.sdk.api.data.*;
@@ -78,37 +79,16 @@ public class AgendaItemBefore implements RecordTrigger {
         return;
       }
 
-      QueryExecutionResult queryResult;
       int intDocId = docId.intValue();
 
-      String topic = newRecord.getValue("topic__c", ValueType.STRING);
-      if (topic == null) {
-        queryResult = QueryUtil.queryOne(
-          "select document_number__v from documents where id = " + intDocId
-        );
-        String documentNumber = queryResult.getValue("document_number__v", ValueType.STRING);
-        newRecord.setValue("topic__c", documentNumber);
-      }
-
-      queryResult = QueryUtil.queryOne(
-        "select user__sys " +
-          "from doc_role__sys " +
-         "where document_id = " + intDocId +
-          " and role_name__sys = 'project_manager__c'"
+      QueryExecutionResult queryResult = QueryUtil.queryOne(
+        "select document_number__v from documents where id = " + intDocId
       );
+      String documentNumber = queryResult.getValue("document_number__v", ValueType.STRING);
+      newRecord.setValue("topic__c", documentNumber);
 
-      if (queryResult == null) {
-        newRecord.setValue("project_owner__c", null); //in case changing to a doc with no PM
-      } else {
-        String userId = queryResult.getValue("user__sys", ValueType.STRING);
-        queryResult = QueryUtil.queryOne(
-          "select first_name__sys, last_name__sys from user__sys where id = '" + userId + "'"
-        );
-        String firstName = queryResult.getValue("first_name__sys", ValueType.STRING);
-        String lastName = queryResult.getValue("last_name__sys", ValueType.STRING);
-
-        newRecord.setValue("project_owner__c", firstName + " " + lastName);
-      }
+      newRecord.setValue("project_owner__c", Util.getUserInDocumentRole(intDocId, "project_manager__c"));
+      newRecord.setValue("document_owner__c", Util.getUserInDocumentRole(intDocId, "owner__v"));
     }
 }
 

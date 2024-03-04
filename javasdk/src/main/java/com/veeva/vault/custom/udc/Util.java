@@ -17,6 +17,7 @@ import com.veeva.vault.sdk.api.role.DocumentRole;
 import com.veeva.vault.sdk.api.role.DocumentRoleService;
 import com.veeva.vault.sdk.api.role.GetDocumentRolesResponse;
 
+import java.math.BigDecimal;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +49,7 @@ import java.util.Set;
   getObjectRecordURL - return a String containing the Vault UI URL for an object record
   getDocumentURL - return a String containing the Vault UI URL for a document
   sendNotificationSimple - Send a simple notification email
+  getUserInDocumentRole - return the UserId of the user in the specified document role for the specified document
   getUserFullName - Return the full name for a user based on the User's user ID.
   isVaultOwner - Return a boolean value to indicate whether a user has the Vault Owner Security Profile.
   getVaultDNS - returns a String containing the Vault's dns
@@ -493,6 +495,33 @@ public class Util {
       notificationParameters.setRecipientsByUserIds(recipients);
 
       notificationService.send(notificationParameters, notificationMessage);
+    }
+
+  /**
+   * Return the UserId of the user in the specified document role for the specified document.
+   *   Return null if there is no user in the specified role.
+   *
+   * @param docId - BigDecimal or int -  the document's document Id
+   * @param roleName - String - name of the role
+   * @return  UserId or null
+   */
+    public static String getUserInDocumentRole(BigDecimal docId, String roleName) {
+      return getUserInDocumentRole(docId.intValue(), roleName);
+    }
+    public static String getUserInDocumentRole(int intDocId, String roleName) {
+
+      QueryExecutionResult queryResult = QueryUtil.queryOne(
+        "select user__sys " +
+          "from doc_role__sys " +
+          "where document_id = " + intDocId +
+          " and role_name__sys = '"+roleName+"'"
+      );
+      if (queryResult == null) {
+        return null;
+      } else {
+        return queryResult.getValue("user__sys", ValueType.STRING);
+      }
+
     }
 
     /**
