@@ -184,6 +184,7 @@ public class AgendaItemsList {
       double dblTime = 0d;
 
       if (agendaMeetingTime != null) {
+        this.timeFormat = getTimeFormat(agendaMeetingTime);
         dblTime = this.timeStringToDouble(agendaMeetingTime);
       }
 
@@ -249,9 +250,10 @@ public class AgendaItemsList {
       return null;  // this should never happen
     }
 
-    // Meeting time will be in format "h:mm [AM|PM] ...". Examples:
-    //   - "10:30 AM ET"
-    //   - "1:30 PM ET"
+    // Meeting time will be in 12-hour format ("h:mm [AM|PM] ...") or 24-hour format ("hh:mm ...").
+    // Examples:
+    //   - "10:30 AM ET" or "10:30 CET"
+    //   - "1:30 PM ET" or "13:30 CET"
     // Return a numeric representation of the time of day, for example:
     //    1:45 PM ==> 13.75
     private double timeStringToDouble(String stringTime) {

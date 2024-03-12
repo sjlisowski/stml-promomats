@@ -87,8 +87,14 @@ public class AgendaItemBefore implements RecordTrigger {
       String documentNumber = queryResult.getValue("document_number__v", ValueType.STRING);
       newRecord.setValue("topic__c", documentNumber);
 
-      newRecord.setValue("project_owner__c", Util.getUserInDocumentRole(intDocId, "project_manager__c"));
-      newRecord.setValue("document_owner__c", Util.getUserInDocumentRole(intDocId, "owner__v"));
+      String projectOwner = Util.getUserInDocumentRole(intDocId, "project_manager__c");
+      String documentOwner =  Util.getUserInDocumentRole(intDocId, "owner__v");
+      if (projectOwner != null) {
+        newRecord.setValue("project_owner__c", projectOwner);
+      }
+      if (projectOwner == null || !documentOwner.equals(projectOwner)) {
+        newRecord.setValue("document_owner__c", documentOwner);
+      }
     }
 }
 

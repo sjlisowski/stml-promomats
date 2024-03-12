@@ -2,6 +2,7 @@ package com.veeva.vault.custom.udc;
 
 import com.veeva.vault.sdk.api.core.*;
 import com.veeva.vault.sdk.api.data.Record;
+import com.veeva.vault.sdk.api.data.RecordBatchDeleteRequest;
 import com.veeva.vault.sdk.api.data.RecordBatchSaveRequest;
 import com.veeva.vault.sdk.api.data.RecordService;
 import com.veeva.vault.sdk.api.document.DocumentService;
@@ -57,7 +58,10 @@ import java.util.Set;
   getDocumentUrl - return a full URL for a document version
   getCountriesInRegion - Return a list of Country object record ID's for records for the specified region.
   equals - Return a boolean to indicate if 2 strings are equal
-  batchSaveRecords - save records
+  batchSaveRecords - save a list of records
+  saveRecord - save a single Record
+  batchDeleteRecords - delete a list of records
+  deleteRecord - delete a single Record
  */
 
 @UserDefinedClassInfo
@@ -616,8 +620,43 @@ public class Util {
         .execute();
     }
 
+    /**
+     * Save a single Record.
+     * @param record
+     */
     public static void saveRecord(Record record) {
       batchSaveRecords(VaultCollections.asList(record));
+    }
+
+    /**
+     *
+     * @param records
+     */
+    public static void batchDeleteRecords(List<Record> records) {
+      RecordService recordService = ServiceLocator.locate(RecordService.class);
+      RecordBatchDeleteRequest deleteRequest = recordService
+        .newRecordBatchDeleteRequestBuilder()
+        .withRecords(records)
+        .build();
+      recordService.batchDeleteRecords(deleteRequest)
+        .onErrors(batchOperationErrors -> {
+          batchOperationErrors.stream().findFirst().ifPresent(error -> {
+            String errMsg = error.getError().getMessage();
+            throw new RollbackException(
+              ErrorType.OPERATION_FAILED,
+              "An error occurred deleting one or more records: " + errMsg
+            );
+          });
+        })
+        .execute();
+    }
+
+  /**
+   * Delete a single Record.
+   * @param record
+   */
+    public static void deleteRecord(Record record) {
+      batchDeleteRecords(VaultCollections.asList(record));
     }
 
 }

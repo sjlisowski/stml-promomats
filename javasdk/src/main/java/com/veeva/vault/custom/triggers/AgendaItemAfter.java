@@ -1,7 +1,7 @@
 package com.veeva.vault.custom.triggers;
 
+import com.veeva.vault.custom.udc.AgendaApp;
 import com.veeva.vault.custom.udc.AgendaItemsList;
-import com.veeva.vault.custom.udc.QueryUtil;
 import com.veeva.vault.sdk.api.core.RequestContext;
 import com.veeva.vault.sdk.api.core.RequestContextValueType;
 import com.veeva.vault.sdk.api.core.TriggerOrder;
@@ -36,7 +36,7 @@ public class AgendaItemAfter implements RecordTrigger {
       List<RecordChange> recordChanges = recordTriggerContext.getRecordChanges();
 
       if (recordChanges.size() > 1) {
-        return; // This trigger supports single-record operations only.  Do NOT throw an Exception.
+        return; // This trigger supports single-record operations only.
       }
 
       RecordChange inputRecord = recordChanges.get(0);
@@ -140,9 +140,7 @@ public class AgendaItemAfter implements RecordTrigger {
     } //end execute()
 
     private String getAgendaMeetingTime(String agendaId) {
-      return QueryUtil.queryOne(
-        "select meeting_time__c from agenda__c where id = '"+agendaId+"'"
-      ).getValue("meeting_time__c", ValueType.STRING);
+      return AgendaApp.getAgendaMeetingTime(agendaId);
     }
 
     /*
@@ -150,11 +148,14 @@ public class AgendaItemAfter implements RecordTrigger {
       the Context.
      */
     private boolean setSemaphore() {
-      Boolean semaphore = RequestContext.get().getValue("semaphore", RequestContextValueType.BOOLEAN);
+      Boolean semaphore = RequestContext.get().getValue(
+        AgendaApp.AGENDA_ITEM_SEMAPHORE,
+        RequestContextValueType.BOOLEAN
+      );
       if (semaphore != null) {
         return false;  //this is not the initial request in the Context
       }
-      RequestContext.get().setValue("semaphore", true);
+      RequestContext.get().setValue(AgendaApp.AGENDA_ITEM_SEMAPHORE, true);
       return true;
     }
 
