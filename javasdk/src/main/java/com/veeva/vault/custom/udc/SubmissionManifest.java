@@ -1,9 +1,9 @@
 package com.veeva.vault.custom.udc;
 
-import com.veeva.vault.sdk.api.core.*;
-import com.veeva.vault.sdk.api.data.Record;
-import com.veeva.vault.sdk.api.data.RecordBatchDeleteRequest;
-import com.veeva.vault.sdk.api.data.RecordService;
+import com.veeva.vault.sdk.api.core.ServiceLocator;
+import com.veeva.vault.sdk.api.core.UserDefinedClassInfo;
+import com.veeva.vault.sdk.api.core.ValueType;
+import com.veeva.vault.sdk.api.core.VaultCollections;
 import com.veeva.vault.sdk.api.document.DocumentService;
 import com.veeva.vault.sdk.api.document.DocumentVersion;
 import com.veeva.vault.sdk.api.query.QueryExecutionResult;
@@ -140,16 +140,13 @@ public class SubmissionManifest {
     }
 
     /**
-     * Check if the Manifest can be closed (actually deleted).
-     * Return true if the Manifest was closed (deleted).
+     * Check if the Manifest can be closed.
+     * Return true if the Manifest was closed.
      * Return false if the Submission Manifest is not ready to be closed.  This is NOT an error state.
      *
      * This logic depends on the following configuration elements in Vault:
-     *   - Submission Manifest object: the deletions rule for child records is set to "cascade"
-     *   - Material document lifecycle: LCS "Approved for Distribution": Entry Action exists to blank
-     *     out the "Submission Manifest" object reference field (material_submission_manifest__c)
-     *   - Compliance Package document lifecycle: LCS "Submission Complete": Entry Action exists to
-     *     blank out the "Submission Manifest" object reference field (submission_manifest__c)
+     *   - Submission Manifest lifecycle: LCS 'Submission Requested' has a change-state User Action
+     *     that changes that state to "Closed".  The User Action is labeled "Close Manifest" (verbatim)
      *
      * @param manifestId -- Submission Manifest record ID
      * @return
@@ -190,23 +187,29 @@ public class SubmissionManifest {
             return result;
         }
 
-        RecordService recordService = ServiceLocator.locate(RecordService.class);
-        Record record = recordService.newRecordWithId("submission_manifest__c", manifestId);
-        RecordBatchDeleteRequest deleteRequest = recordService
-          .newRecordBatchDeleteRequestBuilder()
-          .withRecords(VaultCollections.asList(record))
-          .build();
-        recordService.batchDeleteRecords(deleteRequest)
-          .onErrors(errors -> {
-              errors.stream().findFirst().ifPresent(error -> {
-                String errMsg = error.getError().getMessage();
-                throw new RollbackException(
-                  ErrorType.OPERATION_FAILED,
-                  "Failed to delete Submission Manifest " + manifestId + " due to: " + errMsg
-                );
-              });
-          })
-          .execute();
+        VaultAPI vaultAPI = new VaultAPI("local_connection__c");
+
+        String actionName = vaultAPI.getObjectUserActionName(
+          "submission_manifest__c", manifestId, "Close Manifest"
+        );
+
+        if (vaultAPI.failed()) {
+            String errorType = vaultAPI.getErrorType();
+            String errorMsg = vaultAPI.getErrorMessage();
+            result.message = manifestId + ": an error occurred: " + errorType + ": " + errorMsg;
+            result.success = false;
+            return result;
+        }
+
+        vaultAPI.initiateObjectRecordUserAction("submission_manifest__c", manifestId, actionName);
+
+        if (vaultAPI.failed()) {
+            String errorType = vaultAPI.getErrorType();
+            String errorMsg = vaultAPI.getErrorMessage();
+            result.message = manifestId + ": an error occurred: " + errorType + ": " + errorMsg;
+            result.success = false;
+            return result;
+        }
 
         result.success = true;
 
