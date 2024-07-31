@@ -184,7 +184,7 @@ public class AgendaItemsList {
       double dblTime = 0d;
 
       if (agendaMeetingTime != null) {
-        this.timeFormat = getTimeFormat(agendaMeetingTime);
+        this.timeFormat = getTimeFormat(agendaMeetingTime.toUpperCase());
         dblTime = this.timeStringToDouble(agendaMeetingTime);
       }
 
@@ -287,6 +287,11 @@ public class AgendaItemsList {
       int hour = decTime.intValue();
 
       int min = (int) Math.round(decTime.subtract(new BigDecimal(hour)).multiply(new BigDecimal(60)).doubleValue());
+
+      if (min == 60) {
+        min = 0;
+        hour++;
+      }
 
       if (this.timeFormat == TIME_FORMAT_12) {
         if (hour >= 13) {
