@@ -47,7 +47,7 @@ import java.util.List;
 @UserDefinedClassInfo()
 public class VaultAPI {
 
-  static final String APIVersion = "v22.3";
+  static final String APIVersion = "v24.2";
 
   private String connection;
 

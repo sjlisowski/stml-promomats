@@ -1,10 +1,6 @@
 package com.veeva.vault.custom.udc;
 
-import com.veeva.vault.sdk.api.core.ServiceLocator;
-import com.veeva.vault.sdk.api.core.UserDefinedClassInfo;
-import com.veeva.vault.sdk.api.core.ValueType;
-import com.veeva.vault.sdk.api.core.VaultCollections;
-import com.veeva.vault.sdk.api.data.Record;
+import com.veeva.vault.sdk.api.core.*;
 import com.veeva.vault.sdk.api.data.RecordService;
 import com.veeva.vault.sdk.api.query.QueryExecutionResult;
 
@@ -54,15 +50,25 @@ public class AgendaApp {
         logger.info("No past Agendas found.");
       }
 
+      VaultAPI vapi = new VaultAPI("local_connection__c");
+      String actionName = null;
+
       while (iterator.hasNext()) {
         QueryExecutionResult result = iterator.next();
         String id = result.getValue("id", ValueType.STRING);
         String name = result.getValue("name__v", ValueType.STRING);
         logger.info("Found agenda "+id+": '"+name+"'");
-        Record record = recordService.newRecordWithId("agenda__c", id);
-        record.setValue("status__v", inactive__v);
-        Util.saveRecord(record);  // cannot update status__v in batch for parent objects
-      }
+        if (actionName == null) {
+          actionName = vapi.getObjectUserActionName("agenda__c", id, "Make Inactive");
+        }
+        vapi.initiateObjectRecordUserAction("agenda__c", id, actionName);
+        if (vapi.failed()) {
+          throw new RollbackException(
+            ErrorType.OPERATION_FAILED,
+            "id + \": an error occured: \" + errorType + \": \" + errorMsg"
+          );
+        }
+      }  // end while()
 
     }
 }
