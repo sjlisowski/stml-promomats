@@ -76,33 +76,40 @@ public class SubmissionManifest {
         ///////////////////////////////////////////////////////////
         // No Materials are linked to a different Manifest...
         //////////////////////////////////////////////////////////
-        {
-            queryBuilder.setLength(0);
-            queryBuilder
-              .append("Select document_number__v,")
-              .append("       document_material_submission_manifest__cr.name__v")
-              .append("  from documents")
-              .append(" where version_id contains ").append(versionIdContainsList)
-              .append("   and material_submission_manifest__c != null ")
-              .append("   and material_submission_manifest__c != '").append(manifestId).append("'");
-            Iterator<QueryExecutionResult> queryResultIterator = QueryUtil.query(queryBuilder.toString())
-              .streamResults()
-              .iterator();
-            if (queryResultIterator.hasNext()) {
-                StringBuilder messageBuilder = new StringBuilder(200);
-                messageBuilder.append("The following materials are included in another manifest:\n");
-                while (queryResultIterator.hasNext()) {
-                    QueryExecutionResult qresult = queryResultIterator.next();
-                    String documentNumber = qresult.getValue("document_number__v", ValueType.STRING);
-                    String manifestName = qresult.getValue("document_material_submission_manifest__cr.name__v", ValueType.STRING);
-                    messageBuilder.append(documentNumber).append(" in ").append(manifestName).append("; ");
-                }
-                messageBuilder.append("\n");
-                result.success = false;
-                result.message = messageBuilder.toString();
-                return result;
-            }
-        }
+        /*
+          SJL - 3Feb2025 - This code was removed after the document field 'Submission Manifest'
+            (material_submission_manifest__c) was made multi-select.  This change rendered this query invalid
+            due to the column 'document_material_submission_manifest__cr.name__v'.
+            No other changes were made to the Submission Manifest app at this time, so the practice of one Submission
+            Manifest per Document must be enforced through Process.
+         */
+//        {
+//            queryBuilder.setLength(0);
+//            queryBuilder
+//              .append("Select document_number__v,")
+//              .append("       document_material_submission_manifest__cr.name__v")
+//              .append("  from documents")
+//              .append(" where version_id contains ").append(versionIdContainsList)
+//              .append("   and material_submission_manifest__c != null ")
+//              .append("   and material_submission_manifest__c != '").append(manifestId).append("'");
+//            Iterator<QueryExecutionResult> queryResultIterator = QueryUtil.query(queryBuilder.toString())
+//              .streamResults()
+//              .iterator();
+//            if (queryResultIterator.hasNext()) {
+//                StringBuilder messageBuilder = new StringBuilder(200);
+//                messageBuilder.append("The following materials are included in another manifest:\n");
+//                while (queryResultIterator.hasNext()) {
+//                    QueryExecutionResult qresult = queryResultIterator.next();
+//                    String documentNumber = qresult.getValue("document_number__v", ValueType.STRING);
+//                    String manifestName = qresult.getValue("document_material_submission_manifest__cr.name__v", ValueType.STRING);
+//                    messageBuilder.append(documentNumber).append(" in ").append(manifestName).append("; ");
+//                }
+//                messageBuilder.append("\n");
+//                result.success = false;
+//                result.message = messageBuilder.toString();
+//                return result;
+//            }
+//        }
 
         ///////////////////////////////////////////////////////////////////////////////
         // Verify all Materials in status "Pending Health Authority Submission"...
