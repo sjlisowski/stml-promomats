@@ -7,7 +7,12 @@ import com.veeva.vault.custom.udc.Util;
 import com.veeva.vault.sdk.api.core.RollbackException;
 import com.veeva.vault.sdk.api.core.ServiceLocator;
 import com.veeva.vault.sdk.api.core.ValueType;
+import com.veeva.vault.sdk.api.core.VaultCollections;
 import com.veeva.vault.sdk.api.data.*;
+import com.veeva.vault.sdk.api.query.QueryExecutionResult;
+
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * This trigger performs the following functions:
@@ -70,8 +75,9 @@ public class SubmissionManifestMaterial implements RecordTrigger {
 
       String recordId = getRecordId(record);
       String materialId = getMaterialId(getDocumentVersionId(record));
+      String manifestId = getManifestId(record);
 
-      checkDocumentIncludedOnAnotherManifest(recordId, materialId); //throws exception
+      checkDocumentIncludedOnAnotherManifest(recordId, materialId, manifestId); //throws exception
 
       RecordService recordService = ServiceLocator.locate(RecordService.class);
       Record updateRecord = recordService.newRecordWithId(record.getObjectName(), recordId);
@@ -85,18 +91,52 @@ public class SubmissionManifestMaterial implements RecordTrigger {
 
     }
 
-    // Is the document, identified by the material id, attached to a different manifest?
-    private void checkDocumentIncludedOnAnotherManifest(String recordId, String materialId) {
-      long queryCount = QueryUtil.queryCount(
-        "select id from submission_manifest_material__c" +
+    // Check if the document, identified by the material id, is attached to another manifest
+    // having the same Product.  If so, raise an exception.
+    // This method is executed AFTER update/insert, so the current record is queryable.
+    private void checkDocumentIncludedOnAnotherManifest(
+      String recordId,   // record ID of the submission_manifest_material__c record that's being inserted/updated
+      String materialId,  // materialId (i.e. docnbr-v#) of the document selected on the current record
+      String thisManifestId  // manifest to which the current record is attached
+    ) {
+//      long queryCount = QueryUtil.queryCount(
+//        "select id from submission_manifest_material__c" +
+//        " where material_id__c = '"+materialId+"'" +
+//        "   and id != '"+recordId+"'"
+//      );
+
+      Iterator<QueryExecutionResult> iter = QueryUtil.query(
+        "select submission_manifest__c from submission_manifest_material__c" +
         " where material_id__c = '"+materialId+"'" +
         "   and id != '"+recordId+"'"
-      );
-      if (queryCount > 0) {
-        throw new RollbackException(ErrorType.OPERATION_DENIED,
-          "This material was already included on this or another Manifest."
-        );
+      ).streamResults().iterator();
+
+      List<String> submissionManifestIDs = VaultCollections.newList();
+      while (iter.hasNext()) {
+        QueryExecutionResult result = iter.next();
+        submissionManifestIDs.add(result.getValue("submission_manifest__c", ValueType.STRING));
       }
+
+      if (submissionManifestIDs.size() > 0) {
+
+        String productId = QueryUtil.queryOne(
+          "select product__c from submission_manifest__c where id = '"+thisManifestId+"'"
+        ).getValue("product__c", ValueType.STRING);
+
+        long queryCount = QueryUtil.queryCount(
+          "select id from submission_manifest__c" +
+          " where product__c = '"+productId+"'" +
+          "   and id contains " + Util.vqlContains(submissionManifestIDs)
+        );
+
+        if (queryCount > 0) {
+          throw new RollbackException(ErrorType.OPERATION_DENIED,
+            "This material was already included on this or another Manifest with the same Product."
+          );
+        }
+        
+      }
+
     }
 
     // Rollback if the User is trying to make an unsupported change while the status
@@ -114,6 +154,7 @@ public class SubmissionManifestMaterial implements RecordTrigger {
       }
     }
 
+    // Material ID is the document number plus the material version, e.g. "ELZ-00002-v2"
     private String getMaterialId(String documentVersionId) {
       return QueryUtil.queryOne(
         "select material_id__v from documents where version_id = '"+documentVersionId+"'"
@@ -126,6 +167,10 @@ public class SubmissionManifestMaterial implements RecordTrigger {
 
     private String getDocumentVersionId(Record record) {
       return record.getValue("document__c", ValueType.STRING);
+    }
+
+    private String getManifestId(Record record) {
+      return record.getValue("submission_manifest__c", ValueType.STRING);
     }
 }
 

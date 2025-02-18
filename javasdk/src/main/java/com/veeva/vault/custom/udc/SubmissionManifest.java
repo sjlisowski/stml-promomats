@@ -10,6 +10,7 @@ import com.veeva.vault.sdk.api.query.QueryExecutionResult;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * This module contains business logic relative to the Submission Manifest (submission_manifest__c) Object:
@@ -25,6 +26,11 @@ import java.util.List;
 @UserDefinedClassInfo
 public class SubmissionManifest {
 
+    // The operation to perform when adding or removing a Submission Manifest ID to/from a
+    // Document's 'Submission Manifest' field.
+    private static final int REFERENCE_OP_ADD = 0;
+    private static final int REFERENCE_OP_REMOVE = 1;
+
     /**
      *  Logic to execute when the Manifest is submitted to Regulatory Operations:
      *    - verify at least Submission Manifest Material (submission_manifest_material__c) is related;
@@ -38,7 +44,7 @@ public class SubmissionManifest {
 
         if (result.success == true) {
           List<String> documentVersionIdList = (List<String>) result.extra;
-          setManifestReferenceOnDocuments(documentVersionIdList, manifestId);
+          setManifestReferenceOnDocuments(documentVersionIdList, manifestId, REFERENCE_OP_ADD);
         }
 
         return result;
@@ -143,7 +149,7 @@ public class SubmissionManifest {
     public static void OnReturnToDraft(String manifestId) {
         List<String> documentVersionIdList = getDocumentVersionIds(manifestId);
         // clear the reference to this manifest from the related documents...
-        setManifestReferenceOnDocuments(documentVersionIdList, null);
+        setManifestReferenceOnDocuments(documentVersionIdList, manifestId, REFERENCE_OP_REMOVE);
     }
 
     /**
@@ -224,24 +230,52 @@ public class SubmissionManifest {
     }
 
     // link or un-link the material document to/from the manifest...
-    private static void setManifestReferenceOnDocuments(List<String> documentVersionIdList, String manifestId) {
+    private static void setManifestReferenceOnDocuments(
+      List<String> documentVersionIdList,
+      String manifestId,
+      int referenceOp
+    ) {
 
         DocumentService documentService = ServiceLocator.locate(DocumentService.class);
         List<DocumentVersion> documentVersions = VaultCollections.newList();
+        Map<String, List<String>> documentManifestReferencesMap = VaultCollections.newMap();
 
-        List<String> manifestReference = VaultCollections.newList();
-        if (manifestId != null) {
-          manifestReference.add(manifestId);
+        // First, map the Submission Manifest field for each of the documents in the list...
+        {
+            Iterator<QueryExecutionResult> iterator = QueryUtil.query(
+              "select version_id, material_submission_manifest__c from documents " +
+                " where version_id contains " + Util.vqlContains(documentVersionIdList)
+            ).streamResults().iterator();
+            while (iterator.hasNext()) {
+                QueryExecutionResult result = iterator.next();
+                String versionId = result.getValue("version_id", ValueType.STRING);
+                List<String> manifestReference = result.getValue("material_submission_manifest__c", ValueType.REFERENCES);
+                if (manifestReference == null) {
+                    manifestReference = VaultCollections.newList();
+                }
+                documentManifestReferencesMap.put(versionId, manifestReference);
+            }
         }
 
-        Iterator<String> iterator = documentVersionIdList.iterator();
-        while(iterator.hasNext()) {
-            String documentVersionId = iterator.next();
-            DocumentVersion documentVersion = documentService.newVersionWithId(documentVersionId);
-            documentVersion.setValue("material_submission_manifest__c", manifestReference);
-            documentVersions.add(documentVersion);
+        // Now, update the Submission Manifest field for each of the documents in the list...
+        {
+            Iterator<String> iterator = documentVersionIdList.iterator();
+            while (iterator.hasNext()) {
+                String documentVersionId = iterator.next();
+                DocumentVersion documentVersion = documentService.newVersionWithId(documentVersionId);
+
+                List<String> manifestReference = documentManifestReferencesMap.get(documentVersionId);
+                if (referenceOp == REFERENCE_OP_REMOVE) {
+                    manifestReference.remove(manifestId);
+                } else /* referenceOp == REFERENCE_OP_ADD */ {
+                    manifestReference.add(manifestId);
+                }
+
+                documentVersion.setValue("material_submission_manifest__c", manifestReference);
+                documentVersions.add(documentVersion);
+            }
+            documentService.saveDocumentVersions(documentVersions);
         }
-        documentService.saveDocumentVersions(documentVersions);
     }
 
     // Return a list of the VersionId's for the documents referenced in the
